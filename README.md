@@ -6,7 +6,8 @@ This software was almost fully developed using Windsurf (with Trial Pro access).
 The 90-95% of code was written by Windsurf, I just do some small touches.
 .
 
-⚠️ **Warning**: **This software is not extensively tested and should be used with understanding of potential risks. However:
+⚠️ **Warning**: **This software is not extensively tested and should be used with understanding of potential risks.** 
+However:
 - In normal mode (without --edit), the tool only reads and compares databases without any modifications
 - In edit mode (--edit), the tool automatically creates backup copies of databases before making any changes**
 
