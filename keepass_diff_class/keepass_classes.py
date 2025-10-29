@@ -38,6 +38,8 @@ class KeePassDiffer:
         self.db2: Optional[PyKeePass] = None
         self._results: Optional[List[DiffEntry]] = None
         self.check_trash = check_trash
+        self._keyfile1: Optional[str] = None
+        self._keyfile2: Optional[str] = None
     
     def create_backups(self) -> Tuple[str, str]:
         """Create backups of both databases with timestamp."""
@@ -56,11 +58,14 @@ class KeePassDiffer:
             return None
         return next((diff for diff in self._results if diff.diff_id == diff_id), None)
 
-    def load_databases(self, password1: str, password2: str) -> None:
-        """Load both KeePass databases with provided passwords."""
+    def load_databases(self, password1: str, password2: str, keyfile1: Optional[str] = None, keyfile2: Optional[str] = None) -> None:
+        """Load both KeePass databases with provided passwords and optional key files."""
         try:
-            self.db1 = PyKeePass(self.db1_path, password=password1)
-            self.db2 = PyKeePass(self.db2_path, password=password2)
+            # Store keyfile paths for later reloads
+            self._keyfile1 = keyfile1
+            self._keyfile2 = keyfile2
+            self.db1 = PyKeePass(self.db1_path, password=password1, keyfile=keyfile1)
+            self.db2 = PyKeePass(self.db2_path, password=password2, keyfile=keyfile2)
         except Exception as e:
             raise ValueError(f"Error opening database: {e}")
 

@@ -104,6 +104,36 @@ def cli_get_passwords(db1_path: str, db2_path: str) -> Tuple[str, str]:
 
     return password1, password2
 
+def cli_get_keyfiles(db1_path: str, db2_path: str) -> Tuple[Optional[str], Optional[str]]:
+    """Get key files from command line."""
+    if not get_yes_no_input("Do you need a key file to open the databases?"):
+        return None, None
+    
+    keyfile1 = input(f"Enter key file path for {db1_path}: ").strip()
+    if not keyfile1:
+        keyfile1 = None
+    else:
+        # Validate key file exists
+        if not Path(keyfile1).exists():
+            console.print(f"[red]Warning: Key file '{keyfile1}' does not exist.[/red]")
+            if not get_yes_no_input("Continue anyway?"):
+                keyfile1 = None
+    
+    if get_yes_no_input("Use the same key file for the second database?"):
+        keyfile2 = keyfile1
+    else:
+        keyfile2 = input(f"Enter key file path for {db2_path}: ").strip()
+        if not keyfile2:
+            keyfile2 = None
+        else:
+            # Validate key file exists
+            if not Path(keyfile2).exists():
+                console.print(f"[red]Warning: Key file '{keyfile2}' does not exist.[/red]")
+                if not get_yes_no_input("Continue anyway?"):
+                    keyfile2 = None
+    
+    return keyfile1, keyfile2
+
 def get_yes_no_input(prompt: str) -> bool:
     """Get a yes/no response from the user."""
     while True:
@@ -170,7 +200,7 @@ def handle_batch_operations(differ: KeePassDiffer, batch_type: str, target_db: s
         console.print(f"[red]Failed to process {error_count} entries[/red]")
 
     # Reload databases to get fresh state
-    differ.load_databases(differ.db1.password, differ.db2.password)
+    differ.load_databases(differ.db1.password, differ.db2.password, differ._keyfile1, differ._keyfile2)
     # Get fresh comparison
     differ._results = differ.compare()
     # Show updated results
@@ -366,7 +396,7 @@ def cli_edit_prompt(differ: KeePassDiffer) -> None:
                                 differ.handle_moved_entry(diff_entry, target_db)
                                 console.print("[green]Changes applied successfully![/green]")
                                 # Reload databases to get fresh state
-                                differ.load_databases(differ.db1.password, differ.db2.password)
+                                differ.load_databases(differ.db1.password, differ.db2.password, differ._keyfile1, differ._keyfile2)
                                 # Get fresh comparison
                                 differ._results = differ.compare()
                                 # Show updated results
@@ -393,7 +423,7 @@ def cli_edit_prompt(differ: KeePassDiffer) -> None:
                                 differ.handle_copy_entry(diff_entry, target_db)
                                 console.print("[green]Entry copied successfully![/green]")
                                 # Reload databases to get fresh state
-                                differ.load_databases(differ.db1.password, differ.db2.password)
+                                differ.load_databases(differ.db1.password, differ.db2.password, differ._keyfile1, differ._keyfile2)
                                 # Get fresh comparison
                                 differ._results = differ.compare()
                                 # Show updated results
@@ -495,7 +525,7 @@ def cli_edit_prompt(differ: KeePassDiffer) -> None:
                                 differ.handle_modified_entry(diff_entry, target_db)
                                 console.print("[green]Changes applied successfully![/green]")
                                 # Reload databases to get fresh state
-                                differ.load_databases(differ.db1.password, differ.db2.password)
+                                differ.load_databases(differ.db1.password, differ.db2.password, differ._keyfile1, differ._keyfile2)
                                 # Get fresh comparison
                                 differ._results = differ.compare()
                                 # Show updated results
@@ -557,6 +587,8 @@ def main():
     parser.add_argument('--batch-copy', choices=['db1', 'db2'],
                       help='Batch copy entries that exist in one database to the other. '
                            'Specify the target database to copy to.')
+    parser.add_argument('--key-file', nargs='?', const='', action='append',
+                      help='Key file path(s) for opening databases. Can be specified once (for both databases) or twice (once per database)')
     
     args = parser.parse_args()
     
@@ -572,9 +604,41 @@ def main():
     
         # Get passwords
         password1, password2 = cli_get_passwords(args.db1, args.db2)
+        
+        # Get key files (from command line or interactive)
+        keyfile1 = None
+        keyfile2 = None
+        if args.key_file:
+            # Handle key file arguments
+            if len(args.key_file) == 1:
+                # One key file for both databases
+                keyfile_path = args.key_file[0].strip() if args.key_file[0] else None
+                if keyfile_path:
+                    if Path(keyfile_path).exists():
+                        keyfile1 = keyfile_path
+                        keyfile2 = keyfile_path
+                    else:
+                        console.print(f"[red]Warning: Key file '{keyfile_path}' does not exist.[/red]")
+            elif len(args.key_file) >= 2:
+                # Separate key files for each database
+                keyfile_path1 = args.key_file[0].strip() if args.key_file[0] else None
+                keyfile_path2 = args.key_file[1].strip() if args.key_file[1] else None
+                if keyfile_path1:
+                    if Path(keyfile_path1).exists():
+                        keyfile1 = keyfile_path1
+                    else:
+                        console.print(f"[red]Warning: Key file '{keyfile_path1}' does not exist.[/red]")
+                if keyfile_path2:
+                    if Path(keyfile_path2).exists():
+                        keyfile2 = keyfile_path2
+                    else:
+                        console.print(f"[red]Warning: Key file '{keyfile_path2}' does not exist.[/red]")
+        else:
+            # Interactive key file input if not provided via command line
+            keyfile1, keyfile2 = cli_get_keyfiles(args.db1, args.db2)
     
         # Initialize and run comparison
-        differ.load_databases(password1, password2)
+        differ.load_databases(password1, password2, keyfile1, keyfile2)
         results = differ.compare()
     
         # Display results
